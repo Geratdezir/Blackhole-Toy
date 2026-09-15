@@ -9,5 +9,8 @@ export const CONFIG = {
     diskTurbulence: 0.72,
     haloStrength: 0.14,
     bloomStrength: 0.32,
+    // These landmarks match the rendered disk rather than introducing a
+    // separate visual scale for object lensing.
+    lensing: { outer: 4.8, inner: 2.9, strongest: 1.72 },
   },
 };
