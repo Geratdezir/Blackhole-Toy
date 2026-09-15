@@ -21,9 +21,10 @@ function reset() {
   input.cancel(); toys.forEach(disposeToy); toys.length = 0; spawnIndex = 0; pull = 1; speed = 1; paused = false; accumulator = 0; flash = 0; ui.defaults(); ui.paused(false); world.camera.position.set(0, 22, 15); world.controls.target.set(0, 0, 0); world.controls.update(); spawn('planet');
 }
 ui.bind(spawn, () => { paused = !paused; accumulator = 0; ui.paused(paused); ui.hint(paused ? 'Time is paused. You can still line up a throw.' : 'Grab a world. Pull back. Let it fly.'); }, reset, n => { pull = n; input.refresh(); }, n => { speed = n; });
-reset(); let last = performance.now();
+reset(); let last = performance.now(), visualTime = 0;
 function frame(now: number) {
   requestAnimationFrame(frame); const elapsed = Math.min((now - last) / 1000, 0.05); last = now;
+  if (!document.hidden) visualTime += elapsed;
   if (!paused && !document.hidden) accumulator += elapsed * speed;
   while (accumulator >= C.step) {
     for (let i = toys.length - 1; i >= 0; i--) {
@@ -41,8 +42,8 @@ function frame(now: number) {
     }
     flash = Math.max(0, flash - C.step * 1.8); accumulator -= C.step;
   }
-  world.ring.scale.setScalar(1 + flash * 0.15); world.glow.scale.setScalar(1 + flash * 0.18);
+  world.blackHole.update(visualTime, flash);
   if (world.controls.enabled) world.controls.update();
-  world.renderer.render(world.scene, world.camera);
+  world.composer.render();
 }
 requestAnimationFrame(frame);
