@@ -3,9 +3,18 @@ import { CONFIG as C } from './config';
 
 const diskVertex = /* glsl */`
   varying vec2 vDiskPosition;
+  varying float vLensMask;
+  uniform float uLensPass;
   void main() {
     vDiskPosition = position.xy;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec3 transformed = position;
+    vec2 cameraOnDisk = normalize(vec2(cameraPosition.x, -cameraPosition.z));
+    float facing = dot(normalize(position.xy), cameraOnDisk);
+    float farSide = 1.0 - smoothstep(-0.62, -0.05, facing);
+    float innerLift = 1.0 - smoothstep(1.72, 4.55, length(position.xy));
+    transformed.z += uLensPass * farSide * innerLift * 1.18;
+    vLensMask = mix(1.0, farSide * (0.5 + innerLift * 0.5), uLensPass);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
   }
 `;
 
@@ -14,6 +23,7 @@ const diskFragment = /* glsl */`
   uniform float uTime;
   uniform float uTurbulence;
   varying vec2 vDiskPosition;
+  varying float vLensMask;
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 345.45));
@@ -67,7 +77,7 @@ const diskFragment = /* glsl */`
     color = mix(color, purple, coolPatch * 0.58);
     float innerHeat = 1.0 + 0.42 * (1.0 - smoothstep(0.0, 0.3, radial));
     color *= innerHeat * (0.38 + structure * 0.62);
-    gl_FragColor = vec4(color, density * (0.3 + structure * 0.48));
+    gl_FragColor = vec4(color, density * (0.3 + structure * 0.48) * vLensMask);
   }
 `;
 
@@ -94,6 +104,7 @@ export function createBlackHole() {
     uniforms: {
       uTime: { value: 0 },
       uTurbulence: { value: C.visuals.diskTurbulence },
+      uLensPass: { value: 0 },
     },
     vertexShader: diskVertex,
     fragmentShader: diskFragment,
@@ -106,6 +117,18 @@ export function createBlackHole() {
   disk.rotation.x = -Math.PI / 2;
   disk.position.y = -0.025;
   group.add(disk);
+
+  // Reuse the disk geometry and procedural shader for a lifted far-side arc.
+  // This avoids a full-screen lensing target and adds no texture memory.
+  const lensedDiskMaterial = diskMaterial.clone();
+  lensedDiskMaterial.uniforms.uTime = diskMaterial.uniforms.uTime;
+  lensedDiskMaterial.uniforms.uTurbulence = diskMaterial.uniforms.uTurbulence;
+  lensedDiskMaterial.uniforms.uLensPass.value = 1;
+  const lensedDisk = new T.Mesh(disk.geometry, lensedDiskMaterial);
+  lensedDisk.rotation.copy(disk.rotation);
+  lensedDisk.position.copy(disk.position);
+  lensedDisk.renderOrder = 2;
+  group.add(lensedDisk);
 
   const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(3.4, 1.65, 0.42) });
   const photonRing = new T.Mesh(new T.TorusGeometry(C.horizon * 1.075, 0.024, 8, 128), photonMaterial);
