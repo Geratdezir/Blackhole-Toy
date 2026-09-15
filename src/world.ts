@@ -22,7 +22,7 @@ export function createWorld(host: HTMLElement) {
   const composer = new EffectComposer(renderer);
   composer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new T.Vector2(1, 1), C.visuals.bloomStrength, 0.32, 0.92));
+  composer.addPass(new UnrealBloomPass(new T.Vector2(1, 1), C.visuals.bloomStrength, 0.18, 1.08));
   function resize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); composer.setSize(host.clientWidth, host.clientHeight); }
   new ResizeObserver(resize).observe(host); resize();
   return { scene, camera, renderer, composer, controls, blackHole };

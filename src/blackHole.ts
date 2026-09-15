@@ -40,7 +40,7 @@ const diskFragment = /* glsl */`
 
   void main() {
     float radius = length(vDiskPosition);
-    float radial = clamp((radius - 1.55) / 3.25, 0.0, 1.0);
+    float radial = clamp((radius - 1.68) / 3.12, 0.0, 1.0);
     float angle = atan(vDiskPosition.y, vDiskPosition.x);
     float inward = uTime * 0.075;
     vec2 flow = vec2(angle * 2.4 - uTime * (0.72 - radial * 0.32),
@@ -50,20 +50,24 @@ const diskFragment = /* glsl */`
                              radius * 7.0 + inward * 2.0));
     float filaments = noise(vec2(angle * 19.0 + radius * 4.0 - uTime * 1.35,
                                  radius * 13.0 + broad * 2.5));
-    float structure = mix(broad, streaks, uTurbulence) + filaments * 0.22;
-    float gaps = smoothstep(0.29, 0.58, structure);
-    float wisps = smoothstep(0.48, 0.82, streaks) * 0.55;
-    float edgeFade = smoothstep(1.55, 1.72, radius) * (1.0 - smoothstep(4.25, 4.8, radius));
-    float density = clamp((gaps + wisps) * edgeFade, 0.0, 1.0);
+    float structure = mix(broad, streaks, uTurbulence) + filaments * 0.2;
+    float gaps = smoothstep(0.47, 0.7, structure);
+    float wisps = smoothstep(0.61, 0.86, streaks) * 0.4;
+    float sectors = noise(vec2(angle * 2.1 - uTime * 0.12, floor(radius * 1.6)));
+    float sectorMask = mix(0.28, 1.0, smoothstep(0.25, 0.72, sectors));
+    float innerGap = smoothstep(1.68, 1.94, radius);
+    float edgeFade = innerGap * (1.0 - smoothstep(4.1, 4.72, radius));
+    float density = clamp((gaps + wisps) * edgeFade * sectorMask, 0.0, 0.82);
 
-    vec3 hot = vec3(2.8, 1.65, 0.55);
-    vec3 orange = vec3(1.45, 0.22, 0.035);
-    vec3 purple = vec3(0.33, 0.10, 0.72);
+    vec3 hot = vec3(1.65, 0.78, 0.2);
+    vec3 orange = vec3(1.15, 0.16, 0.025);
+    vec3 purple = vec3(0.2, 0.045, 0.38);
     vec3 color = mix(hot, orange, smoothstep(0.03, 0.48, radial));
-    color = mix(color, purple, smoothstep(0.58, 1.0, radial));
-    float innerHeat = 1.0 + 1.25 * (1.0 - smoothstep(0.0, 0.3, radial));
-    color *= innerHeat * (0.5 + structure * 0.85);
-    gl_FragColor = vec4(color, density * (0.44 + structure * 0.52));
+    float coolPatch = smoothstep(0.62, 1.0, radial) * smoothstep(0.42, 0.76, broad);
+    color = mix(color, purple, coolPatch * 0.58);
+    float innerHeat = 1.0 + 0.42 * (1.0 - smoothstep(0.0, 0.3, radial));
+    color *= innerHeat * (0.38 + structure * 0.62);
+    gl_FragColor = vec4(color, density * (0.3 + structure * 0.48));
   }
 `;
 
@@ -98,13 +102,13 @@ export function createBlackHole() {
     depthWrite: false,
     blending: T.AdditiveBlending,
   });
-  const disk = new T.Mesh(new T.RingGeometry(1.55, 4.8, 128, 10), diskMaterial);
+  const disk = new T.Mesh(new T.RingGeometry(1.68, 4.8, 128, 10), diskMaterial);
   disk.rotation.x = -Math.PI / 2;
   disk.position.y = -0.025;
   group.add(disk);
 
-  const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(4.5, 2.5, 0.9) });
-  const photonRing = new T.Mesh(new T.TorusGeometry(C.horizon * 1.105, 0.045, 10, 128), photonMaterial);
+  const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(3.4, 1.65, 0.42) });
+  const photonRing = new T.Mesh(new T.TorusGeometry(C.horizon * 1.075, 0.024, 8, 128), photonMaterial);
   photonRing.rotation.x = Math.PI / 2;
   group.add(photonRing);
 

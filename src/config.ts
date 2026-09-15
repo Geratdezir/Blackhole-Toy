@@ -7,7 +7,7 @@ export const CONFIG = {
   visuals: {
     diskSpeed: 0.8,
     diskTurbulence: 0.72,
-    haloStrength: 0.22,
-    bloomStrength: 0.68,
+    haloStrength: 0.14,
+    bloomStrength: 0.32,
   },
 };
