@@ -40,7 +40,7 @@ const diskFragment = /* glsl */`
 
   void main() {
     float radius = length(vDiskPosition);
-    float radial = clamp((radius - 1.68) / 3.12, 0.0, 1.0);
+    float radial = clamp((radius - 1.48) / 3.32, 0.0, 1.0);
     float angle = atan(vDiskPosition.y, vDiskPosition.x);
     float inward = uTime * 0.075;
     vec2 flow = vec2(angle * 2.4 - uTime * (0.72 - radial * 0.32),
@@ -55,17 +55,17 @@ const diskFragment = /* glsl */`
     float wisps = smoothstep(0.61, 0.86, streaks) * 0.4;
     float sectors = noise(vec2(angle * 2.1 - uTime * 0.12, floor(radius * 1.6)));
     float sectorMask = mix(0.28, 1.0, smoothstep(0.25, 0.72, sectors));
-    float innerGap = smoothstep(1.68, 1.94, radius);
+    float innerGap = smoothstep(1.48, 1.64, radius);
     float edgeFade = innerGap * (1.0 - smoothstep(4.1, 4.72, radius));
     float density = clamp((gaps + wisps) * edgeFade * sectorMask, 0.0, 0.82);
 
-    vec3 hot = vec3(1.65, 0.78, 0.2);
-    vec3 orange = vec3(1.15, 0.16, 0.025);
+    vec3 hot = vec3(1.78, 0.84, 0.22);
+    vec3 orange = vec3(1.2, 0.18, 0.03);
     vec3 purple = vec3(0.2, 0.045, 0.38);
     vec3 color = mix(hot, orange, smoothstep(0.03, 0.48, radial));
     float coolPatch = smoothstep(0.62, 1.0, radial) * smoothstep(0.42, 0.76, broad);
     color = mix(color, purple, coolPatch * 0.58);
-    float innerHeat = 1.0 + 0.42 * (1.0 - smoothstep(0.0, 0.3, radial));
+    float innerHeat = 1.0 + 0.52 * (1.0 - smoothstep(0.0, 0.3, radial));
     color *= innerHeat * (0.38 + structure * 0.62);
     gl_FragColor = vec4(color, density * (0.3 + structure * 0.48));
   }
@@ -73,11 +73,12 @@ const diskFragment = /* glsl */`
 
 export function createBlackHole() {
   const group = new T.Group();
+  const overlay = new T.Group();
   const core = new T.Mesh(
     new T.SphereGeometry(C.horizon, 48, 32),
     new T.MeshBasicMaterial({ color: 0x000005 }),
   );
-  group.add(core);
+  overlay.add(core);
 
   const halo = new T.Mesh(
     new T.SphereGeometry(C.horizon * 1.18, 32, 20),
@@ -88,7 +89,7 @@ export function createBlackHole() {
       transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.BackSide,
     }),
   );
-  group.add(halo);
+  overlay.add(halo);
 
   const diskMaterial = new T.ShaderMaterial({
     uniforms: {
@@ -102,7 +103,7 @@ export function createBlackHole() {
     depthWrite: false,
     blending: T.AdditiveBlending,
   });
-  const disk = new T.Mesh(new T.RingGeometry(1.68, 4.8, 128, 10), diskMaterial);
+  const disk = new T.Mesh(new T.RingGeometry(1.48, 4.8, 128, 10), diskMaterial);
   disk.rotation.x = -Math.PI / 2;
   disk.position.y = -0.025;
   group.add(disk);
@@ -110,7 +111,7 @@ export function createBlackHole() {
   const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(3.4, 1.65, 0.42) });
   const photonRing = new T.Mesh(new T.TorusGeometry(C.horizon * 1.075, 0.024, 8, 128), photonMaterial);
   photonRing.rotation.x = Math.PI / 2;
-  group.add(photonRing);
+  overlay.add(photonRing);
 
   function update(elapsed: number, flash: number) {
     diskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
@@ -118,5 +119,5 @@ export function createBlackHole() {
     disk.scale.setScalar(1 + flash * 0.06);
   }
 
-  return { group, disk, photonRing, halo, update };
+  return { group, overlay, disk, photonRing, halo, update };
 }

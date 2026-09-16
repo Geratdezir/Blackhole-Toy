@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { CONFIG as C } from './config';
 import { createBlackHole } from './blackHole';
+import { createLensingPass } from './lensing';
 export function createWorld(host: HTMLElement) {
   const scene = new T.Scene(); scene.background = new T.Color('#090c1b');
   const camera = new T.PerspectiveCamera(45, 1, 0.1, 250); camera.position.set(0, 22, 15);
@@ -12,6 +13,10 @@ export function createWorld(host: HTMLElement) {
   const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableDamping = true; controls.minDistance = 15; controls.maxDistance = 43; controls.minPolarAngle = 0.15; controls.maxPolarAngle = 1.05; controls.target.set(0, 0, 0);
   scene.add(new T.AmbientLight(0xb6c3ff, 2)); const light = new T.PointLight(0xffbe92, 65); light.position.set(0, 5, 0); scene.add(light);
   const blackHole = createBlackHole(); scene.add(blackHole.group);
+  // The disk is rendered into the lens source without the opaque horizon. This
+  // separate transparent scene restores the shadow, halo, and photon ring only
+  // after all lensable scene content has been displaced.
+  const blackHoleOverlay = new T.Scene(); blackHoleOverlay.add(blackHole.overlay);
   const stars = new Float32Array(1800 * 3);
   for (let i = 0; i < stars.length; i += 3) { const a = Math.random() * Math.PI * 2; const r = 40 + Math.random() * 65; stars[i] = Math.cos(a) * r; stars[i + 1] = -12 - Math.random() * 35; stars[i + 2] = Math.sin(a) * r; }
   const geometry = new T.BufferGeometry(); geometry.setAttribute('position', new T.BufferAttribute(stars, 3)); scene.add(new T.Points(geometry, new T.PointsMaterial({ color: 0xa5b4dc, size: 0.075, transparent: true, opacity: 0.75 })));
@@ -22,8 +27,14 @@ export function createWorld(host: HTMLElement) {
   const composer = new EffectComposer(renderer);
   composer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   composer.addPass(new RenderPass(scene, camera));
+  const lensing = createLensingPass(camera);
+  composer.addPass(lensing.pass);
+  const overlayPass = new RenderPass(blackHoleOverlay, camera);
+  overlayPass.clear = false;
+  overlayPass.clearDepth = true;
+  composer.addPass(overlayPass);
   composer.addPass(new UnrealBloomPass(new T.Vector2(1, 1), C.visuals.bloomStrength, 0.18, 1.08));
-  function resize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); composer.setSize(host.clientWidth, host.clientHeight); }
+  function resize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); composer.setSize(host.clientWidth, host.clientHeight); lensing.update(host.clientWidth, host.clientHeight); }
   new ResizeObserver(resize).observe(host); resize();
-  return { scene, camera, renderer, composer, controls, blackHole };
+  return { scene, camera, renderer, composer, controls, blackHole, updateLensing: () => lensing.update(host.clientWidth, host.clientHeight) };
 }

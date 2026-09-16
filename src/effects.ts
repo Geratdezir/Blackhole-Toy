@@ -5,7 +5,9 @@ export function updateToy(toy: Toy, dt: number) {
   const { state: s, mesh } = toy; const r = Math.hypot(s.x, s.z);
   mesh.position.set(s.x, 0, s.z);
   // Radial stretch is visual only, and reverses when a flyby moves away.
-  const stretch = 1 + Math.max(0, 1 - (r - C.horizon) / 2.8) * 2.2;
+  // Optical bending is handled by the shared screen-space lens. Physical
+  // spaghettification only takes over in the tighter, innermost zone.
+  const stretch = 1 + Math.max(0, 1 - (r - C.horizon) / 1.85) * 1.9;
   const shrink = toy.capture < 0 ? 1 : Math.max(0, 1 - toy.capture / C.captureDuration);
   mesh.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), new T.Vector3(s.x / Math.max(r, 0.001), 0, s.z / Math.max(r, 0.001)).normalize());
   mesh.scale.set(stretch * shrink, shrink / Math.sqrt(stretch), shrink / Math.sqrt(stretch));

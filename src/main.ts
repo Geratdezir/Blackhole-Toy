@@ -44,6 +44,7 @@ function frame(now: number) {
   }
   world.blackHole.update(visualTime, flash);
   if (world.controls.enabled) world.controls.update();
+  world.updateLensing();
   world.composer.render();
 }
 requestAnimationFrame(frame);
