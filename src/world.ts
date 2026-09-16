@@ -33,7 +33,7 @@ export function createWorld(host: HTMLElement) {
   overlayPass.clear = false;
   overlayPass.clearDepth = true;
   composer.addPass(overlayPass);
-  composer.addPass(new UnrealBloomPass(new T.Vector2(1, 1), C.visuals.bloomStrength, 0.18, 1.08));
+  composer.addPass(new UnrealBloomPass(new T.Vector2(1, 1), C.visuals.bloomStrength, 0.18, C.visuals.bloomThreshold));
   function resize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); composer.setSize(host.clientWidth, host.clientHeight); lensing.update(host.clientWidth, host.clientHeight); }
   new ResizeObserver(resize).observe(host); resize();
   return { scene, camera, renderer, composer, controls, blackHole, updateLensing: () => lensing.update(host.clientWidth, host.clientHeight) };

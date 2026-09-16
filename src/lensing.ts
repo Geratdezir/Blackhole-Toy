@@ -53,7 +53,7 @@ const lensShader = {
       // Increase only the source-space slope in a narrow band around theta_E.
       // The zero crossing stays fixed while nearby imagery compresses into a
       // tighter arc; the base lens equation is untouched outside the band.
-      float criticalBand = 1.0 - smoothstep(0.0, 0.48,
+      float criticalBand = 1.0 - smoothstep(0.0, 0.42,
         abs(normalizedRadius - uEinsteinRadius));
       lensScale *= 1.0 + criticalBand * uCriticalCompression;
       vec2 sourceMetric = metric * lensScale;

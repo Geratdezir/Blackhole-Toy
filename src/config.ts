@@ -8,9 +8,10 @@ export const CONFIG = {
     diskSpeed: 0.8,
     diskTurbulence: 0.72,
     haloStrength: 0.14,
-    bloomStrength: 0.32,
-    einsteinRadius: 1.34,
-    criticalCompression: 0.13,
+    bloomStrength: 0.36,
+    bloomThreshold: 1.12,
+    einsteinRadius: 1.27,
+    criticalCompression: 0.1,
     lensingExtent: 4.0,
   },
 };
