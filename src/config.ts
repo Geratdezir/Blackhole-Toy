@@ -10,8 +10,10 @@ export const CONFIG = {
     haloStrength: 0.14,
     bloomStrength: 0.36,
     bloomThreshold: 1.12,
-    einsteinRadius: 1.27,
-    criticalCompression: 0.1,
-    lensingExtent: 4.0,
+    shadowScale: 1.06,
+    criticalScale: 1.12,
+    criticalWidth: 0.22,
+    lensingStrength: 0.38,
+    lensingExtent: 3.2,
   },
 };

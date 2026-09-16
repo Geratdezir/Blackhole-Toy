@@ -8,8 +8,9 @@ const lensShader = {
     uCenter: { value: new T.Vector2(0.5, 0.5) },
     uAspect: { value: 1 },
     uShadowRadius: { value: 0.04 },
-    uEinsteinRadius: { value: C.visuals.einsteinRadius },
-    uCriticalCompression: { value: C.visuals.criticalCompression },
+    uCriticalScale: { value: C.visuals.criticalScale },
+    uCriticalWidth: { value: C.visuals.criticalWidth },
+    uLensingStrength: { value: C.visuals.lensingStrength },
     uExtent: { value: C.visuals.lensingExtent },
   },
   vertexShader: /* glsl */`
@@ -25,8 +26,9 @@ const lensShader = {
     uniform vec2 uCenter;
     uniform float uAspect;
     uniform float uShadowRadius;
-    uniform float uEinsteinRadius;
-    uniform float uCriticalCompression;
+    uniform float uCriticalScale;
+    uniform float uCriticalWidth;
+    uniform float uLensingStrength;
     uniform float uExtent;
     varying vec2 vUv;
 
@@ -43,20 +45,14 @@ const lensShader = {
         return;
       }
 
-      // Point-mass thin-lens equation: beta = theta - theta_E^2 / theta.
-      // The signed scale crosses zero at the Einstein radius, so imagery can
-      // fold and invert there instead of being uniformly sucked toward a hole.
-      float safeRadius = max(normalizedRadius, 0.35);
-      float outerFade = 1.0 - smoothstep(uExtent * 0.62, uExtent, normalizedRadius);
-      float einsteinSquared = uEinsteinRadius * uEinsteinRadius;
-      float lensScale = 1.0 - outerFade * einsteinSquared / (safeRadius * safeRadius);
-      // Increase only the source-space slope in a narrow band around theta_E.
-      // The zero crossing stays fixed while nearby imagery compresses into a
-      // tighter arc; the base lens equation is untouched outside the band.
-      float criticalBand = 1.0 - smoothstep(0.0, 0.42,
-        abs(normalizedRadius - uEinsteinRadius));
-      lensScale *= 1.0 + criticalBand * uCriticalCompression;
-      vec2 sourceMetric = metric * lensScale;
+      // Bounded black-hole-style warp: imagery near the critical curve samples
+      // farther outward, compressing it inward without a point-lens fling.
+      float outerFade = 1.0 - smoothstep(uExtent * 0.68, uExtent, normalizedRadius);
+      float criticalDelta = (normalizedRadius - uCriticalScale) / max(uCriticalWidth, 0.0001);
+      float ringMask = exp(-0.5 * criticalDelta * criticalDelta);
+      float sourceRadius = normalizedRadius + outerFade * uLensingStrength * ringMask;
+      vec2 metricDirection = metric / max(distanceFromLens, 0.0001);
+      vec2 sourceMetric = metricDirection * sourceRadius * lensRadius;
       vec2 sourceUv = uCenter + vec2(sourceMetric.x / uAspect, sourceMetric.y);
       vec4 lensed = texture2D(tDiffuse, clamp(sourceUv, vec2(0.001), vec2(0.999)));
       gl_FragColor = lensed;
@@ -73,7 +69,7 @@ export function createLensingPass(camera: T.PerspectiveCamera) {
   function update(width: number, height: number) {
     camera.updateMatrixWorld();
     center.set(0, 0, 0).project(camera);
-    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(C.horizon);
+    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(C.horizon * C.visuals.shadowScale);
     edge.copy(cameraRight).project(camera);
 
     pass.uniforms.uCenter.value.set(center.x * 0.5 + 0.5, center.y * 0.5 + 0.5);
