@@ -73,11 +73,12 @@ const diskFragment = /* glsl */`
 
 export function createBlackHole() {
   const group = new T.Group();
+  const overlay = new T.Group();
   const core = new T.Mesh(
     new T.SphereGeometry(C.horizon, 48, 32),
     new T.MeshBasicMaterial({ color: 0x000005 }),
   );
-  group.add(core);
+  overlay.add(core);
 
   const halo = new T.Mesh(
     new T.SphereGeometry(C.horizon * 1.18, 32, 20),
@@ -88,7 +89,7 @@ export function createBlackHole() {
       transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.BackSide,
     }),
   );
-  group.add(halo);
+  overlay.add(halo);
 
   const diskMaterial = new T.ShaderMaterial({
     uniforms: {
@@ -110,7 +111,7 @@ export function createBlackHole() {
   const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(3.4, 1.65, 0.42) });
   const photonRing = new T.Mesh(new T.TorusGeometry(C.horizon * 1.075, 0.024, 8, 128), photonMaterial);
   photonRing.rotation.x = Math.PI / 2;
-  group.add(photonRing);
+  overlay.add(photonRing);
 
   function update(elapsed: number, flash: number) {
     diskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
@@ -118,5 +119,5 @@ export function createBlackHole() {
     disk.scale.setScalar(1 + flash * 0.06);
   }
 
-  return { group, disk, photonRing, halo, update };
+  return { group, overlay, disk, photonRing, halo, update };
 }

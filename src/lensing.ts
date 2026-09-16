@@ -8,7 +8,7 @@ const lensShader = {
     uCenter: { value: new T.Vector2(0.5, 0.5) },
     uAspect: { value: 1 },
     uShadowRadius: { value: 0.04 },
-    uStrength: { value: C.visuals.lensingStrength },
+    uEinsteinRadius: { value: C.visuals.einsteinRadius },
     uExtent: { value: C.visuals.lensingExtent },
   },
   vertexShader: /* glsl */`
@@ -24,7 +24,7 @@ const lensShader = {
     uniform vec2 uCenter;
     uniform float uAspect;
     uniform float uShadowRadius;
-    uniform float uStrength;
+    uniform float uEinsteinRadius;
     uniform float uExtent;
     varying vec2 vUv;
 
@@ -41,19 +41,16 @@ const lensShader = {
         return;
       }
 
-      // A thin gravitational lens deflects light radially by approximately 1/r.
-      // Sampling away from the mass pulls the scene inward without making a
-      // second mesh/image. The smooth bound prevents a heat-haze-like edge.
-      float outerFade = 1.0 - smoothstep(uExtent * 0.68, uExtent, normalizedRadius);
-      float deflection = uStrength * outerFade / max(normalizedRadius, 0.92);
-      vec2 sourceMetric = metric * (1.0 + deflection / max(normalizedRadius, 0.92));
+      // Point-mass thin-lens equation: beta = theta - theta_E^2 / theta.
+      // The signed scale crosses zero at the Einstein radius, so imagery can
+      // fold and invert there instead of being uniformly sucked toward a hole.
+      float safeRadius = max(normalizedRadius, 0.35);
+      float outerFade = 1.0 - smoothstep(uExtent * 0.62, uExtent, normalizedRadius);
+      float einsteinSquared = uEinsteinRadius * uEinsteinRadius;
+      float lensScale = 1.0 - outerFade * einsteinSquared / (safeRadius * safeRadius);
+      vec2 sourceMetric = metric * lensScale;
       vec2 sourceUv = uCenter + vec2(sourceMetric.x / uAspect, sourceMetric.y);
       vec4 lensed = texture2D(tDiffuse, clamp(sourceUv, vec2(0.001), vec2(0.999)));
-
-      // The event-horizon silhouette remains an absorber rather than becoming
-      // a transparent magnifier. Keep a narrow soft edge for the photon ring.
-      float shadow = 1.0 - smoothstep(0.91, 1.01, normalizedRadius);
-      lensed.rgb *= 1.0 - shadow;
       gl_FragColor = lensed;
     }
   `,

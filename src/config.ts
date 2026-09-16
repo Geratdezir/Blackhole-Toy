@@ -9,7 +9,7 @@ export const CONFIG = {
     diskTurbulence: 0.72,
     haloStrength: 0.14,
     bloomStrength: 0.32,
-    lensingStrength: 0.72,
-    lensingExtent: 4.6,
+    einsteinRadius: 1.42,
+    lensingExtent: 4.0,
   },
 };
