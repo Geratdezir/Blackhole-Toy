@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { CONFIG as C } from './config';
 import { createBlackHole } from './blackHole';
+import { createLensingPass } from './lensing';
 export function createWorld(host: HTMLElement) {
   const scene = new T.Scene(); scene.background = new T.Color('#090c1b');
   const camera = new T.PerspectiveCamera(45, 1, 0.1, 250); camera.position.set(0, 22, 15);
@@ -22,8 +23,10 @@ export function createWorld(host: HTMLElement) {
   const composer = new EffectComposer(renderer);
   composer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   composer.addPass(new RenderPass(scene, camera));
+  const lensing = createLensingPass(camera);
+  composer.addPass(lensing.pass);
   composer.addPass(new UnrealBloomPass(new T.Vector2(1, 1), C.visuals.bloomStrength, 0.18, 1.08));
-  function resize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); composer.setSize(host.clientWidth, host.clientHeight); }
+  function resize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); composer.setSize(host.clientWidth, host.clientHeight); lensing.update(host.clientWidth, host.clientHeight); }
   new ResizeObserver(resize).observe(host); resize();
-  return { scene, camera, renderer, composer, controls, blackHole };
+  return { scene, camera, renderer, composer, controls, blackHole, updateLensing: () => lensing.update(host.clientWidth, host.clientHeight) };
 }

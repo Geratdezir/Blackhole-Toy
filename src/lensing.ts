@@ -1,0 +1,80 @@
+import * as T from 'three';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { CONFIG as C } from './config';
+
+const lensShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uCenter: { value: new T.Vector2(0.5, 0.5) },
+    uAspect: { value: 1 },
+    uShadowRadius: { value: 0.04 },
+    uStrength: { value: C.visuals.lensingStrength },
+    uExtent: { value: C.visuals.lensingExtent },
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */`
+    precision highp float;
+    uniform sampler2D tDiffuse;
+    uniform vec2 uCenter;
+    uniform float uAspect;
+    uniform float uShadowRadius;
+    uniform float uStrength;
+    uniform float uExtent;
+    varying vec2 vUv;
+
+    void main() {
+      vec2 delta = vUv - uCenter;
+      vec2 metric = vec2(delta.x * uAspect, delta.y);
+      float distanceFromLens = length(metric);
+      float lensRadius = max(uShadowRadius, 0.0001);
+      float normalizedRadius = distanceFromLens / lensRadius;
+
+      // Outside the bounded lens region this pass is a single texture copy.
+      if (normalizedRadius >= uExtent) {
+        gl_FragColor = texture2D(tDiffuse, vUv);
+        return;
+      }
+
+      // A thin gravitational lens deflects light radially by approximately 1/r.
+      // Sampling away from the mass pulls the scene inward without making a
+      // second mesh/image. The smooth bound prevents a heat-haze-like edge.
+      float outerFade = 1.0 - smoothstep(uExtent * 0.68, uExtent, normalizedRadius);
+      float deflection = uStrength * outerFade / max(normalizedRadius, 0.92);
+      vec2 sourceMetric = metric * (1.0 + deflection / max(normalizedRadius, 0.92));
+      vec2 sourceUv = uCenter + vec2(sourceMetric.x / uAspect, sourceMetric.y);
+      vec4 lensed = texture2D(tDiffuse, clamp(sourceUv, vec2(0.001), vec2(0.999)));
+
+      // The event-horizon silhouette remains an absorber rather than becoming
+      // a transparent magnifier. Keep a narrow soft edge for the photon ring.
+      float shadow = 1.0 - smoothstep(0.91, 1.01, normalizedRadius);
+      lensed.rgb *= 1.0 - shadow;
+      gl_FragColor = lensed;
+    }
+  `,
+};
+
+export function createLensingPass(camera: T.PerspectiveCamera) {
+  const pass = new ShaderPass(lensShader);
+  const center = new T.Vector3();
+  const edge = new T.Vector3();
+  const cameraRight = new T.Vector3();
+
+  function update(width: number, height: number) {
+    camera.updateMatrixWorld();
+    center.set(0, 0, 0).project(camera);
+    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(C.horizon);
+    edge.copy(cameraRight).project(camera);
+
+    pass.uniforms.uCenter.value.set(center.x * 0.5 + 0.5, center.y * 0.5 + 0.5);
+    pass.uniforms.uAspect.value = width / Math.max(height, 1);
+    pass.uniforms.uShadowRadius.value = Math.abs(edge.x - center.x) * 0.5 * pass.uniforms.uAspect.value;
+  }
+
+  return { pass, update };
+}
