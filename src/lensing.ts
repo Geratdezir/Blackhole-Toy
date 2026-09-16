@@ -9,6 +9,7 @@ const lensShader = {
     uAspect: { value: 1 },
     uShadowRadius: { value: 0.04 },
     uEinsteinRadius: { value: C.visuals.einsteinRadius },
+    uCriticalCompression: { value: C.visuals.criticalCompression },
     uExtent: { value: C.visuals.lensingExtent },
   },
   vertexShader: /* glsl */`
@@ -25,6 +26,7 @@ const lensShader = {
     uniform float uAspect;
     uniform float uShadowRadius;
     uniform float uEinsteinRadius;
+    uniform float uCriticalCompression;
     uniform float uExtent;
     varying vec2 vUv;
 
@@ -48,6 +50,12 @@ const lensShader = {
       float outerFade = 1.0 - smoothstep(uExtent * 0.62, uExtent, normalizedRadius);
       float einsteinSquared = uEinsteinRadius * uEinsteinRadius;
       float lensScale = 1.0 - outerFade * einsteinSquared / (safeRadius * safeRadius);
+      // Increase only the source-space slope in a narrow band around theta_E.
+      // The zero crossing stays fixed while nearby imagery compresses into a
+      // tighter arc; the base lens equation is untouched outside the band.
+      float criticalBand = 1.0 - smoothstep(0.0, 0.48,
+        abs(normalizedRadius - uEinsteinRadius));
+      lensScale *= 1.0 + criticalBand * uCriticalCompression;
       vec2 sourceMetric = metric * lensScale;
       vec2 sourceUv = uCenter + vec2(sourceMetric.x / uAspect, sourceMetric.y);
       vec4 lensed = texture2D(tDiffuse, clamp(sourceUv, vec2(0.001), vec2(0.999)));
