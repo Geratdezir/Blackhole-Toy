@@ -31,7 +31,18 @@ function frame(now: number) {
       const toy = toys[i]; if (toy.held || toy.waiting) continue;
       if (toy.capture >= 0) {
         // Capture animates over several frames before releasing GPU resources.
-        toy.capture += C.step; toy.state.x *= 0.985; toy.state.z *= 0.985;
+        const captureT = Math.min(1, toy.capture / C.captureDuration);
+        const r = Math.hypot(toy.state.x, toy.state.z);
+        const invR = 1 / Math.max(r, 0.001);
+        const dirX = -toy.state.x * invR;
+        const dirZ = -toy.state.z * invR;
+        const velocityDamping = 0.985 - 0.11 * captureT;
+        const capturePull = 7 + 18 * captureT;
+        toy.state.vx = (toy.state.vx + dirX * capturePull * C.step) * velocityDamping;
+        toy.state.vz = (toy.state.vz + dirZ * capturePull * C.step) * velocityDamping;
+        toy.state.x += toy.state.vx * C.step;
+        toy.state.z += toy.state.vz * C.step;
+        toy.capture += C.step;
         if (toy.capture >= C.captureDuration) { disposeToy(toy); toys.splice(i, 1); continue; }
       } else {
         step(toy.state, C.step, pull); const r = Math.hypot(toy.state.x, toy.state.z);
