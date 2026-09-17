@@ -2,10 +2,38 @@ import * as T from 'three';
 import { CONFIG as C } from './config';
 
 const diskVertex = /* glsl */`
+  uniform float uLensPass;
+  uniform float uCriticalRadius;
+  uniform float uDiskInnerRadius;
+  uniform float uDiskLensOuterRadius;
+  uniform float uDiskLensSpread;
   varying vec2 vDiskPosition;
+  varying float vLensMask;
   void main() {
     vDiskPosition = position.xy;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 centerView = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 vertexView = modelViewMatrix * vec4(position, 1.0);
+    vLensMask = 1.0;
+
+    if (uLensPass > 0.5) {
+      float diskRadius = length(position.xy);
+      float normalizedFarDepth = (centerView.z - vertexView.z) / max(diskRadius, 0.0001);
+      float farMask = smoothstep(0.02, 0.30, normalizedFarDepth);
+      float sourceMask = 1.0 - smoothstep(uDiskInnerRadius, uDiskLensOuterRadius, diskRadius);
+      vec2 viewOffset = vertexView.xy - centerView.xy;
+      float projectedRadius = length(viewOffset);
+      vec2 viewDirection = viewOffset / max(projectedRadius, 0.0001);
+      float targetRadius = uCriticalRadius
+        + max(diskRadius - uDiskInnerRadius, 0.0) * uDiskLensSpread;
+      float projectionGate = 1.0 - smoothstep(
+        targetRadius, targetRadius + uCriticalRadius * 0.35, projectedRadius
+      );
+      vLensMask = farMask * sourceMask * projectionGate;
+      float warpedRadius = mix(projectedRadius, max(projectedRadius, targetRadius), vLensMask);
+      vertexView.xy = centerView.xy + viewDirection * warpedRadius;
+    }
+
+    gl_Position = projectionMatrix * vertexView;
   }
 `;
 
@@ -13,7 +41,13 @@ const diskFragment = /* glsl */`
   precision highp float;
   uniform float uTime;
   uniform float uTurbulence;
+  uniform float uLensPass;
+  uniform float uDiskInnerRadius;
+  uniform float uDiskOuterRadius;
+  uniform float uDiskInnerFadeWidth;
+  uniform float uDiskLensOpacity;
   varying vec2 vDiskPosition;
+  varying float vLensMask;
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 345.45));
@@ -40,7 +74,7 @@ const diskFragment = /* glsl */`
 
   void main() {
     float radius = length(vDiskPosition);
-    float radial = clamp((radius - 1.48) / 3.32, 0.0, 1.0);
+    float radial = clamp((radius - uDiskInnerRadius) / (uDiskOuterRadius - uDiskInnerRadius), 0.0, 1.0);
     float angle = atan(vDiskPosition.y, vDiskPosition.x);
     float inward = uTime * 0.075;
     vec2 flow = vec2(angle * 2.4 - uTime * (0.72 - radial * 0.32),
@@ -55,7 +89,7 @@ const diskFragment = /* glsl */`
     float wisps = smoothstep(0.61, 0.86, streaks) * 0.4;
     float sectors = noise(vec2(angle * 2.1 - uTime * 0.12, floor(radius * 1.6)));
     float sectorMask = mix(0.28, 1.0, smoothstep(0.25, 0.72, sectors));
-    float innerGap = smoothstep(1.48, 1.64, radius);
+    float innerGap = smoothstep(uDiskInnerRadius, uDiskInnerRadius + uDiskInnerFadeWidth, radius);
     float edgeFade = innerGap * (1.0 - smoothstep(4.1, 4.72, radius));
     float density = clamp((gaps + wisps) * edgeFade * sectorMask, 0.0, 0.82);
 
@@ -67,7 +101,8 @@ const diskFragment = /* glsl */`
     color = mix(color, purple, coolPatch * 0.58);
     float innerHeat = 1.0 + 0.55 * (1.0 - smoothstep(0.0, 0.3, radial));
     color *= innerHeat * (0.38 + structure * 0.62);
-    gl_FragColor = vec4(color, density * (0.3 + structure * 0.48));
+    float lensAlpha = uLensPass > 0.5 ? vLensMask * uDiskLensOpacity : 1.0;
+    gl_FragColor = vec4(color, density * (0.3 + structure * 0.48) * lensAlpha);
   }
 `;
 
@@ -92,11 +127,20 @@ export function createBlackHole() {
   );
   overlay.add(halo);
 
-  const diskMaterial = new T.ShaderMaterial({
-    uniforms: {
+  const diskUniforms = (lensPass: number) => ({
       uTime: { value: 0 },
       uTurbulence: { value: C.visuals.diskTurbulence },
-    },
+      uLensPass: { value: lensPass },
+      uCriticalRadius: { value: shadowRadius * C.visuals.criticalScale },
+      uDiskInnerRadius: { value: C.visuals.diskInnerRadius },
+      uDiskOuterRadius: { value: C.visuals.diskOuterRadius },
+      uDiskInnerFadeWidth: { value: C.visuals.diskInnerFadeWidth },
+      uDiskLensOuterRadius: { value: C.visuals.diskLensOuterRadius },
+      uDiskLensSpread: { value: C.visuals.diskLensSpread },
+      uDiskLensOpacity: { value: C.visuals.diskLensOpacity },
+  });
+  const createDiskMaterial = (lensPass: number) => new T.ShaderMaterial({
+    uniforms: diskUniforms(lensPass),
     vertexShader: diskVertex,
     fragmentShader: diskFragment,
     side: T.DoubleSide,
@@ -104,10 +148,16 @@ export function createBlackHole() {
     depthWrite: false,
     blending: T.AdditiveBlending,
   });
-  const disk = new T.Mesh(new T.RingGeometry(1.48, 4.8, 128, 10), diskMaterial);
-  disk.rotation.x = -Math.PI / 2;
-  disk.position.y = -0.025;
-  group.add(disk);
+  const diskGeometry = new T.RingGeometry(C.visuals.diskInnerRadius, C.visuals.diskOuterRadius, 128, 10);
+  const diskMaterial = createDiskMaterial(0);
+  const lensedDiskMaterial = createDiskMaterial(1);
+  const disk = new T.Mesh(diskGeometry, diskMaterial);
+  const lensedDisk = new T.Mesh(diskGeometry, lensedDiskMaterial);
+  for (const mesh of [disk, lensedDisk]) {
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = -0.025;
+  }
+  group.add(lensedDisk, disk);
 
   const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(3.4, 1.65, 0.42) });
   const photonRing = new T.Mesh(new T.TorusGeometry(shadowRadius * C.visuals.criticalScale, 0.02, 8, 128), photonMaterial);
@@ -116,9 +166,11 @@ export function createBlackHole() {
 
   function update(elapsed: number, flash: number) {
     diskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
+    lensedDiskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
     photonRing.scale.setScalar(1 + flash * 0.15);
     disk.scale.setScalar(1 + flash * 0.06);
+    lensedDisk.scale.copy(disk.scale);
   }
 
-  return { group, overlay, disk, photonRing, halo, update };
+  return { group, overlay, disk, lensedDisk, photonRing, halo, update };
 }

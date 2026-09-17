@@ -8,9 +8,7 @@ const lensShader = {
     uCenter: { value: new T.Vector2(0.5, 0.5) },
     uAspect: { value: 1 },
     uShadowRadius: { value: 0.04 },
-    uCriticalScale: { value: C.visuals.criticalScale },
-    uCriticalWidth: { value: C.visuals.criticalWidth },
-    uLensingStrength: { value: C.visuals.lensingStrength },
+    uLensStrength: { value: C.visuals.backgroundLensStrength },
     uExtent: { value: C.visuals.lensingExtent },
   },
   vertexShader: /* glsl */`
@@ -26,9 +24,7 @@ const lensShader = {
     uniform vec2 uCenter;
     uniform float uAspect;
     uniform float uShadowRadius;
-    uniform float uCriticalScale;
-    uniform float uCriticalWidth;
-    uniform float uLensingStrength;
+    uniform float uLensStrength;
     uniform float uExtent;
     varying vec2 vUv;
 
@@ -45,12 +41,12 @@ const lensShader = {
         return;
       }
 
-      // Bounded black-hole-style warp: imagery near the critical curve samples
-      // farther outward, compressing it inward without a point-lens fling.
-      float outerFade = 1.0 - smoothstep(uExtent * 0.68, uExtent, normalizedRadius);
-      float criticalDelta = (normalizedRadius - uCriticalScale) / max(uCriticalWidth, 0.0001);
-      float ringMask = exp(-0.5 * criticalDelta * criticalDelta);
-      float sourceRadius = normalizedRadius + outerFade * uLensingStrength * ringMask;
+      // Mild monotonic deflection for background and scene objects. The disk's
+      // secondary image is constructed from its own camera-aware geometry.
+      float safeRadius = max(normalizedRadius, 0.65);
+      float outerFade = 1.0 - smoothstep(uExtent * 0.55, uExtent, normalizedRadius);
+      float deflection = uLensStrength * outerFade / safeRadius;
+      float sourceRadius = max(0.0, normalizedRadius - deflection);
       vec2 metricDirection = metric / max(distanceFromLens, 0.0001);
       vec2 sourceMetric = metricDirection * sourceRadius * lensRadius;
       vec2 sourceUv = uCenter + vec2(sourceMetric.x / uAspect, sourceMetric.y);
