@@ -18,7 +18,8 @@ export function updateToy(toy: Toy, dt: number) {
   const collapseT = toy.capture < 0 ? 0 : smoothstep(0.68, 1.0, captureT);
   const opacity = 1 - captureFade;
   const visualRadiusScale = 1 - 0.55 * collapseT;
-  const collapseScale = 1 - 0.88 * collapseT;
+  const terminalCollapse = Math.pow(collapseT, 2.2);
+  const collapseScale = Math.max(0.02, 1 - 0.98 * terminalCollapse);
   mesh.position.set(s.x * visualRadiusScale, 0, s.z * visualRadiusScale);
   mesh.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), new T.Vector3(s.x / Math.max(r, 0.001), 0, s.z / Math.max(r, 0.001)).normalize());
   mesh.scale.set(stretch * collapseScale, collapseScale / Math.sqrt(stretch), collapseScale / Math.sqrt(stretch));
