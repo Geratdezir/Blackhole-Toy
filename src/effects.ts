@@ -14,12 +14,12 @@ export function updateToy(toy: Toy, dt: number) {
   // spaghettification only takes over in the tighter, innermost zone.
   const stretch = 1 + Math.max(0, 1 - (r - C.horizon) / 1.85) * 1.9;
   const captureT = toy.capture < 0 ? 0 : Math.min(1, toy.capture / C.captureDuration);
-  const captureFade = toy.capture < 0 ? 0 : smoothstep(0.35, 1.0, captureT);
-  const collapseT = toy.capture < 0 ? 0 : smoothstep(0.68, 1.0, captureT);
+  const captureFade = toy.capture < 0 ? 0 : smoothstep(0.50, 1.0, captureT);
+  const collapseT = toy.capture < 0 ? 0 : smoothstep(0.58, 1.0, captureT);
   const opacity = 1 - captureFade;
   const visualRadiusScale = 1 - 0.55 * collapseT;
-  const terminalCollapse = Math.pow(collapseT, 2.2);
-  const collapseScale = Math.max(0.02, 1 - 0.98 * terminalCollapse);
+  const terminalCollapse = Math.pow(collapseT, 1.15);
+  const collapseScale = Math.max(0.03, 1 - 0.97 * terminalCollapse);
   mesh.position.set(s.x * visualRadiusScale, 0, s.z * visualRadiusScale);
   mesh.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), new T.Vector3(s.x / Math.max(r, 0.001), 0, s.z / Math.max(r, 0.001)).normalize());
   mesh.scale.set(stretch * collapseScale, collapseScale / Math.sqrt(stretch), collapseScale / Math.sqrt(stretch));
