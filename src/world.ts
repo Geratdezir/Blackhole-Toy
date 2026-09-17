@@ -8,9 +8,9 @@ import { createBlackHole } from './blackHole';
 import { createLensingPass } from './lensing';
 export function createWorld(host: HTMLElement) {
   const scene = new T.Scene(); scene.background = new T.Color('#090c1b');
-  const camera = new T.PerspectiveCamera(45, 1, 0.1, 250); camera.position.set(0, 22, 15);
+  const camera = new T.PerspectiveCamera(45, 1, 0.1, 250); camera.position.set(0, 20.5, 15.5);
   const renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.outputColorSpace = T.SRGBColorSpace; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; host.append(renderer.domElement);
-  const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableDamping = true; controls.minDistance = 15; controls.maxDistance = 43; controls.minPolarAngle = 0.15; controls.maxPolarAngle = 1.05; controls.target.set(0, 0, 0);
+  const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableDamping = true; controls.minDistance = 15; controls.maxDistance = 43; controls.minPolarAngle = 0.15; controls.maxPolarAngle = 1.1; controls.target.set(0, 0, 0);
   scene.add(new T.AmbientLight(0xb6c3ff, 2)); const light = new T.PointLight(0xffbe92, 65); light.position.set(0, 5, 0); scene.add(light);
   const blackHole = createBlackHole(); scene.add(blackHole.group);
   // The disk is rendered into the lens source without the opaque horizon. This
