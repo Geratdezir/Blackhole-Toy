@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { CONFIG as C } from './config';
+import type { Toy } from './objects';
 
 const lensShader = {
   uniforms: {
@@ -61,6 +62,16 @@ export function createLensingPass(camera: T.PerspectiveCamera) {
   const center = new T.Vector3();
   const edge = new T.Vector3();
   const cameraRight = new T.Vector3();
+  const centerView = new T.Vector3();
+  const objectView = new T.Vector3();
+  const objectScreen = new T.Vector3();
+  const echoView = new T.Vector3();
+  const sourceDirection = new T.Vector2();
+
+  function smoothstep(edge0: number, edge1: number, value: number) {
+    const t = T.MathUtils.clamp((value - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
 
   function update(width: number, height: number) {
     camera.updateMatrixWorld();
@@ -73,5 +84,57 @@ export function createLensingPass(camera: T.PerspectiveCamera) {
     pass.uniforms.uShadowRadius.value = Math.abs(edge.x - center.x) * 0.5 * pass.uniforms.uAspect.value;
   }
 
-  return { pass, update };
+  function updateObjects(toys: Toy[], backgroundScene: T.Scene, foregroundScene: T.Scene) {
+    camera.updateMatrixWorld();
+    centerView.set(0, 0, 0).applyMatrix4(camera.matrixWorldInverse);
+    center.set(0, 0, 0).project(camera);
+    const aspect = pass.uniforms.uAspect.value as number;
+    const projectedShadowRadius = Math.max(pass.uniforms.uShadowRadius.value as number, 0.0001);
+    const shadowRadius = C.horizon * C.visuals.shadowScale;
+    const criticalRadius = shadowRadius * C.visuals.criticalScale;
+
+    for (const toy of toys) {
+      objectView.copy(toy.mesh.position).applyMatrix4(camera.matrixWorldInverse);
+      const isBehind = objectView.z < centerView.z;
+      const targetScene = isBehind ? backgroundScene : foregroundScene;
+      if (toy.mesh.parent !== targetScene) targetScene.add(toy.mesh);
+
+      if (!isBehind || toy.capture >= 0) {
+        toy.lensEcho.visible = false;
+        continue;
+      }
+
+      objectScreen.copy(toy.mesh.position).project(camera);
+      const screenX = (objectScreen.x - center.x) * aspect;
+      const screenY = objectScreen.y - center.y;
+      const normalizedScreenRadius = Math.hypot(screenX, screenY) / projectedShadowRadius;
+      const alignment = 1 - smoothstep(C.visuals.objectLensInner, C.visuals.objectLensOuter, normalizedScreenRadius);
+      const behindFactor = smoothstep(0, shadowRadius, centerView.z - objectView.z);
+      const strength = T.MathUtils.clamp(alignment * behindFactor, 0, 1);
+      if (strength < 0.001) {
+        toy.lensEcho.visible = false;
+        continue;
+      }
+
+      sourceDirection.set(objectView.x - centerView.x, objectView.y - centerView.y);
+      if (sourceDirection.lengthSq() < 0.000001) sourceDirection.set(1, 0);
+      else sourceDirection.normalize();
+      const echoRadius = T.MathUtils.lerp(shadowRadius * 1.01, criticalRadius, strength);
+      echoView.set(
+        centerView.x - sourceDirection.x * echoRadius,
+        centerView.y - sourceDirection.y * echoRadius,
+        centerView.z,
+      ).applyMatrix4(camera.matrixWorld);
+      toy.lensEcho.position.copy(echoView);
+      toy.lensEcho.quaternion.copy(toy.mesh.quaternion);
+      const echoScale = T.MathUtils.lerp(C.visuals.objectLensMinScale, C.visuals.objectLensMaxScale, strength);
+      toy.lensEcho.scale.copy(toy.mesh.scale).multiplyScalar(echoScale);
+      toy.lensEcho.traverse(o => {
+        if (o instanceof T.Mesh) (o.material as T.MeshBasicMaterial).opacity = C.visuals.objectLensOpacity * strength;
+      });
+      toy.lensEcho.visible = true;
+    }
+  }
+
+  return { pass, update, updateObjects };
 }

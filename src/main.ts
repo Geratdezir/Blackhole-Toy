@@ -15,7 +15,7 @@ function spawn(kind: Kind) {
   // Spawn on the camera's far side so the tray cannot cover a new toy.
   const a = Math.atan2(world.camera.position.z, world.camera.position.x) + Math.PI + ((spawnIndex++ * 2.399 + 0.7) % 1.8 - 0.9);
   const radius = Math.min(C.spawnRadius, world.camera.position.length() * 0.29);
-  const toy = createToy(kind, Math.cos(a) * radius, Math.sin(a) * radius); toys.push(toy); world.scene.add(toy.mesh, toy.trail); updateToy(toy, 0); ui.hint('Your new world is ready. Pull it back and let go!');
+  const toy = createToy(kind, Math.cos(a) * radius, Math.sin(a) * radius); toys.push(toy); world.scene.add(toy.mesh, toy.trail); world.secondaryScene.add(toy.lensEcho); updateToy(toy, 0); ui.hint('Your new world is ready. Pull it back and let go!');
 }
 function reset() {
   input.cancel(); toys.forEach(disposeToy); toys.length = 0; spawnIndex = 0; pull = 1; speed = 1; paused = false; accumulator = 0; flash = 0; ui.defaults(); ui.paused(false); world.camera.position.set(0, 22, 15); world.controls.target.set(0, 0, 0); world.controls.update(); spawn('planet');
@@ -45,6 +45,7 @@ function frame(now: number) {
   world.blackHole.update(visualTime, flash);
   if (world.controls.enabled) world.controls.update();
   world.updateLensing();
+  world.updateObjectLensing(toys, world.scene, world.foregroundScene);
   world.composer.render();
 }
 requestAnimationFrame(frame);
