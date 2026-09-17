@@ -73,7 +73,7 @@ export function createLensingPass(camera: T.PerspectiveCamera) {
   function update(width: number, height: number) {
     camera.updateMatrixWorld();
     center.set(0, 0, 0).project(camera);
-    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(C.horizon);
+    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(C.horizon * C.visuals.lensScale);
     edge.copy(cameraRight).project(camera);
 
     pass.uniforms.uCenter.value.set(center.x * 0.5 + 0.5, center.y * 0.5 + 0.5);
