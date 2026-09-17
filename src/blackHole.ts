@@ -59,13 +59,13 @@ const diskFragment = /* glsl */`
     float edgeFade = innerGap * (1.0 - smoothstep(4.1, 4.72, radius));
     float density = clamp((gaps + wisps) * edgeFade * sectorMask, 0.0, 0.82);
 
-    vec3 hot = vec3(1.82, 0.91, 0.28);
+    vec3 hot = vec3(1.96, 1.02, 0.34);
     vec3 orange = vec3(1.15, 0.16, 0.025);
     vec3 purple = vec3(0.2, 0.045, 0.38);
     vec3 color = mix(hot, orange, smoothstep(0.03, 0.48, radial));
     float coolPatch = smoothstep(0.62, 1.0, radial) * smoothstep(0.42, 0.76, broad);
     color = mix(color, purple, coolPatch * 0.58);
-    float innerHeat = 1.0 + 0.55 * (1.0 - smoothstep(0.0, 0.3, radial));
+    float innerHeat = 1.0 + 0.68 * (1.0 - smoothstep(0.0, 0.3, radial));
     color *= innerHeat * (0.38 + structure * 0.62);
     gl_FragColor = vec4(color, density * (0.3 + structure * 0.48));
   }
