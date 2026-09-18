@@ -15,11 +15,11 @@ export function updateToy(toy: Toy, dt: number) {
   const stretchT = Math.min(1, Math.max(0, 1 - (r - C.horizon) / 1.85));
   const stretch = 1 + stretchT * 1.9;
   const captureT = toy.capture < 0 ? 0 : Math.min(1, toy.capture / C.captureDuration);
-  const collapseT = toy.capture < 0 ? 0 : smoothstep(0.10, 0.74, captureT);
-  const captureFade = toy.capture < 0 ? 0 : smoothstep(0.74, 1.0, captureT);
+  const collapseT = toy.capture < 0 ? 0 : smoothstep(0.80, 0.995, captureT);
+  const captureFade = toy.capture < 0 ? 0 : smoothstep(0.92, 1.0, captureT);
   const opacity = 1 - captureFade;
-  const terminalCollapse = Math.pow(collapseT, 0.85);
-  const collapseScale = Math.max(0.02, 1 - 0.98 * terminalCollapse);
+  const terminalCollapse = Math.pow(collapseT, 0.90);
+  const collapseScale = Math.max(0.015, 1 - 0.985 * terminalCollapse);
   mesh.position.set(s.x, 0, s.z);
   mesh.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), new T.Vector3(s.x / Math.max(r, 0.001), 0, s.z / Math.max(r, 0.001)).normalize());
   mesh.scale.set(stretch * collapseScale, collapseScale / Math.sqrt(stretch), collapseScale / Math.sqrt(stretch));

@@ -71,11 +71,6 @@ const diskFragment = /* glsl */`
   }
 `;
 
-function smoothstep(edge0: number, edge1: number, x: number) {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
 export function createBlackHole() {
   const group = new T.Group();
   const overlay = new T.Group();
@@ -120,8 +115,7 @@ export function createBlackHole() {
 
   function update(elapsed: number, flash: number) {
     diskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
-    const flashProgress = 1 - Math.min(1, Math.max(0, flash));
-    const flashPulse = smoothstep(0, 0.12, flashProgress) * (1 - smoothstep(0.12, 1, flashProgress));
+    const flashPulse = Math.min(1, Math.max(0, flash));
     photonMaterial.color.setRGB(3.4, 1.65, 0.42).multiplyScalar(1 + flashPulse * 1.35);
     halo.material.uniforms.uStrength.value = C.visuals.haloStrength + flashPulse * 0.32;
   }
