@@ -41,11 +41,13 @@ function frame(now: number) {
         const captureT = Math.min(1, toy.capture / C.captureDuration);
         const r = Math.hypot(toy.state.x, toy.state.z);
         const angle = Math.atan2(toy.state.z, toy.state.x);
-        const deathSpiralT = smoothstep(0.48, 0.98, captureT);
-        const inwardSpeed = toy.captureEntryInwardSpeed + (2.8 - toy.captureEntryInwardSpeed) * Math.pow(deathSpiralT, 1.55);
+        const deathSpiralT = smoothstep(0.20, 0.98, captureT);
+        const finalInwardSpeed = Math.min(4.0, Math.max(3.0, toy.captureEntryInwardSpeed + 1.0, toy.captureEntryInwardSpeed * 1.35));
+        const inwardSpeed = toy.captureEntryInwardSpeed + (finalInwardSpeed - toy.captureEntryInwardSpeed) * Math.pow(deathSpiralT, 1.35);
         const nextR = Math.max(0.03, r - inwardSpeed * C.step);
-        const tangentialSpeed = Math.min(4.4, toy.captureEntryTangentialSpeed * (1 + 0.72 * Math.pow(deathSpiralT, 1.25)));
-        const angularSpeed = Math.min(8.0, tangentialSpeed / Math.max(r, 0.32));
+        const finalTangentialSpeed = Math.min(7.5, Math.max(toy.captureEntryTangentialSpeed + 1.25, toy.captureEntryTangentialSpeed * 1.35));
+        const tangentialSpeed = toy.captureEntryTangentialSpeed + (finalTangentialSpeed - toy.captureEntryTangentialSpeed) * Math.pow(deathSpiralT, 1.15);
+        const angularSpeed = Math.min(10.0, tangentialSpeed / Math.max(r, 0.32));
         const nextAngle = angle + toy.captureSpin * angularSpeed * C.step;
         const oldX = toy.state.x;
         const oldZ = toy.state.z;
@@ -55,8 +57,8 @@ function frame(now: number) {
         toy.state.vz = (toy.state.z - oldZ) / C.step;
         toy.capture += C.step;
         const energyCaptureT = Math.min(1, toy.capture / C.captureDuration);
-        const energyCollapseT = smoothstep(0.80, 0.995, energyCaptureT);
-        const captureEnergy = Math.pow(energyCollapseT, 1.65);
+        const energyCollapseT = smoothstep(0.68, 0.995, energyCaptureT);
+        const captureEnergy = Math.pow(energyCollapseT, 1.8);
         activeCaptureEnergy = Math.max(activeCaptureEnergy, captureEnergy);
         if (toy.capture >= C.captureDuration) { disposeToy(toy); toys.splice(i, 1); continue; }
       } else {
@@ -70,8 +72,8 @@ function frame(now: number) {
           const radialV = toy.state.vx * ux + toy.state.vz * uz;
           const tangentialV = toy.state.vx * tx + toy.state.vz * tz;
           toy.captureSpin = tangentialV < 0 ? -1 : 1;
-          toy.captureEntryTangentialSpeed = Math.min(2.8, Math.max(1.6, Math.abs(tangentialV)));
-          toy.captureEntryInwardSpeed = Math.min(1.3, Math.max(0.65, Math.max(0, -radialV)));
+          toy.captureEntryTangentialSpeed = Math.min(6.0, Math.max(1.8, Math.abs(tangentialV)));
+          toy.captureEntryInwardSpeed = Math.min(2.5, Math.max(0.8, Math.max(0, -radialV)));
           toy.capture = 0;
         }
         else if (r > C.escapeRadius) { disposeToy(toy); toys.splice(i, 1); continue; }
