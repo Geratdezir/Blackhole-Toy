@@ -36,17 +36,19 @@ function frame(now: number) {
         const invR = 1 / Math.max(r, 0.001);
         const dirX = -toy.state.x * invR;
         const dirZ = -toy.state.z * invR;
-        const velocityDamping = 0.985 - 0.11 * captureT;
-        const capturePull = 7 + 18 * captureT;
+        const velocityDamping = 0.997 - 0.005 * captureT;
+        const capturePull = 12 + 8 * captureT;
         toy.state.vx = (toy.state.vx + dirX * capturePull * C.step) * velocityDamping;
         toy.state.vz = (toy.state.vz + dirZ * capturePull * C.step) * velocityDamping;
         toy.state.x += toy.state.vx * C.step;
         toy.state.z += toy.state.vz * C.step;
         toy.capture += C.step;
+        const nextCaptureT = Math.min(1, toy.capture / C.captureDuration);
+        if (captureT < 0.90 && nextCaptureT >= 0.90) flash = 1;
         if (toy.capture >= C.captureDuration) { disposeToy(toy); toys.splice(i, 1); continue; }
       } else {
         step(toy.state, C.step, pull); const r = Math.hypot(toy.state.x, toy.state.z);
-        if (r < C.horizon) { toy.capture = 0; flash = 1; }
+        if (r < C.horizon) { toy.capture = 0; }
         else if (r > C.escapeRadius) { disposeToy(toy); toys.splice(i, 1); continue; }
       }
       updateToy(toy, C.step);
