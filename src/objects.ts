@@ -8,7 +8,7 @@ export const TYPES = {
   star: { label: 'Star', color: 0xffd778, radius: 0.47 },
 };
 export type Kind = keyof typeof TYPES;
-export interface Toy { state: State; mesh: T.Mesh; kind: Kind; held: boolean; waiting: boolean; capture: number; trail: T.Line; history: T.Vector3[]; trailClock: number }
+export interface Toy { state: State; mesh: T.Mesh; kind: Kind; held: boolean; waiting: boolean; capture: number; captureSpin: number; captureEntryTangentialSpeed: number; captureEntryInwardSpeed: number; trail: T.Line; history: T.Vector3[]; trailClock: number }
 export function createToy(kind: Kind, x: number, z: number): Toy {
   const spec = TYPES[kind];
   const geometry = kind === 'asteroid' ? new T.IcosahedronGeometry(spec.radius, 0) : kind === 'star' ? new T.OctahedronGeometry(spec.radius, 0) : new T.SphereGeometry(spec.radius, 24, 16);
@@ -24,7 +24,7 @@ export function createToy(kind: Kind, x: number, z: number): Toy {
   trailGeometry.setDrawRange(0, 0);
   const trail = new T.Line(trailGeometry, new T.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.7, blending: T.AdditiveBlending, depthWrite: false }));
   trail.frustumCulled = false;
-  return { state: { x, z, vx: 0, vz: 0 }, mesh, kind, held: false, waiting: true, capture: -1, trail, history: [], trailClock: 0 };
+  return { state: { x, z, vx: 0, vz: 0 }, mesh, kind, held: false, waiting: true, capture: -1, captureSpin: 1, captureEntryTangentialSpeed: 2.0, captureEntryInwardSpeed: 0.8, trail, history: [], trailClock: 0 };
 }
 export function disposeToy(toy: Toy) {
   toy.mesh.traverse(o => { if (o instanceof T.Mesh) { o.geometry.dispose(); (o.material as T.Material).dispose(); } });

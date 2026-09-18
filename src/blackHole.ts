@@ -115,8 +115,9 @@ export function createBlackHole() {
 
   function update(elapsed: number, flash: number) {
     diskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
-    photonRing.scale.setScalar(1 + flash * 0.15);
-    disk.scale.setScalar(1 + flash * 0.06);
+    const flashPulse = Math.min(1, Math.max(0, flash));
+    photonMaterial.color.setRGB(3.4, 1.65, 0.42).multiplyScalar(1 + flashPulse * 1.35);
+    halo.material.uniforms.uStrength.value = C.visuals.haloStrength + flashPulse * 0.32;
   }
 
   return { group, overlay, disk, photonRing, halo, update };
