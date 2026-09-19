@@ -57,8 +57,8 @@ function frame(now: number) {
         toy.state.vz = (toy.state.z - oldZ) / C.step;
         toy.capture += C.step;
         const energyCaptureT = Math.min(1, toy.capture / C.captureDuration);
-        const energyCollapseT = smoothstep(0.68, 0.995, energyCaptureT);
-        const captureEnergy = Math.pow(energyCollapseT, 1.8);
+        const energyCollapseT = smoothstep(0.58, 0.995, energyCaptureT);
+        const captureEnergy = Math.pow(energyCollapseT, 2.4);
         activeCaptureEnergy = Math.max(activeCaptureEnergy, captureEnergy);
         if (toy.capture >= C.captureDuration) { disposeToy(toy); toys.splice(i, 1); continue; }
       } else {
