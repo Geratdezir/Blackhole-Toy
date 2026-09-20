@@ -71,6 +71,11 @@ const diskFragment = /* glsl */`
   }
 `;
 
+function smoothstep(edge0: number, edge1: number, x: number) {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
 export function createBlackHole() {
   const group = new T.Group();
   const overlay = new T.Group();
@@ -83,9 +88,12 @@ export function createBlackHole() {
   const halo = new T.Mesh(
     new T.SphereGeometry(C.horizon * 1.18, 32, 20),
     new T.ShaderMaterial({
-      uniforms: { uStrength: { value: C.visuals.haloStrength } },
+      uniforms: {
+        uStrength: { value: C.visuals.haloStrength },
+        uColor: { value: new T.Color().setRGB(0.38, 0.16, 0.78) },
+      },
       vertexShader: `varying vec3 vNormal; varying vec3 vView; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vNormal=normalize(normalMatrix*normal); vView=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`,
-      fragmentShader: `uniform float uStrength; varying vec3 vNormal; varying vec3 vView; void main(){ float rim=pow(1.0-abs(dot(vNormal,vView)),2.4); gl_FragColor=vec4(vec3(0.38,0.16,0.78)*rim*1.5,rim*uStrength); }`,
+      fragmentShader: `uniform float uStrength; uniform vec3 uColor; varying vec3 vNormal; varying vec3 vView; void main(){ float rim=pow(1.0-abs(dot(vNormal,vView)),2.4); gl_FragColor=vec4(uColor*rim*1.5,rim*uStrength); }`,
       transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.BackSide,
     }),
   );
@@ -108,16 +116,28 @@ export function createBlackHole() {
   disk.position.y = -0.025;
   group.add(disk);
 
-  const photonMaterial = new T.MeshBasicMaterial({ color: new T.Color().setRGB(3.4, 1.65, 0.42) });
+  const photonBaseColor = new T.Color().setRGB(3.4, 1.65, 0.42);
+  const photonHotColor = new T.Color().setRGB(3.7, 2.05, 0.72);
+  const photonEmberColor = new T.Color().setRGB(2.5, 0.45, 0.07);
+  const haloBaseColor = new T.Color().setRGB(0.38, 0.16, 0.78);
+  const haloEmberColor = new T.Color().setRGB(1.0, 0.08, 0.02);
+  const photonMaterial = new T.MeshBasicMaterial({ color: photonBaseColor.clone() });
   const photonRing = new T.Mesh(new T.TorusGeometry(C.horizon * 1.075, 0.024, 8, 128), photonMaterial);
   photonRing.rotation.x = Math.PI / 2;
   overlay.add(photonRing);
 
-  function update(elapsed: number, flash: number) {
+  function update(elapsed: number, flash: number, activeCaptureEnergy: number) {
     diskMaterial.uniforms.uTime.value = elapsed * C.visuals.diskSpeed;
     const flashPulse = Math.min(1, Math.max(0, flash));
-    photonMaterial.color.setRGB(3.4, 1.65, 0.42).multiplyScalar(1 + flashPulse * 1.35);
-    halo.material.uniforms.uStrength.value = C.visuals.haloStrength + flashPulse * 0.32;
+    const activePulse = Math.min(1, Math.max(0, activeCaptureEnergy));
+    const residualPulse = activePulse <= 0.001 ? flashPulse : 0;
+    const cooling = 1 - flashPulse;
+    const whiteTail = residualPulse * (1 - smoothstep(0.08, 0.35, cooling));
+    const emberPulse = residualPulse * smoothstep(0.12, 0.45, cooling);
+    const hotPulse = Math.max(activePulse, whiteTail);
+    photonMaterial.color.copy(photonBaseColor).lerp(photonHotColor, hotPulse).lerp(photonEmberColor, emberPulse * 0.18).multiplyScalar(1 + hotPulse * 1.65 + emberPulse * 0.12);
+    halo.material.uniforms.uColor.value.copy(haloBaseColor).lerp(haloEmberColor, emberPulse * 0.45);
+    halo.material.uniforms.uStrength.value = C.visuals.haloStrength + hotPulse * 0.42 + emberPulse * 0.10;
   }
 
   return { group, overlay, disk, photonRing, halo, update };

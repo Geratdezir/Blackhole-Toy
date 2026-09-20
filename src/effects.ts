@@ -10,10 +10,10 @@ function smoothstep(edge0: number, edge1: number, x: number) {
 export function updateToy(toy: Toy, dt: number) {
   const { state: s, mesh } = toy; const r = Math.hypot(s.x, s.z);
   const captureT = toy.capture < 0 ? 0 : Math.min(1, toy.capture / C.captureDuration);
-  const collapseT = toy.capture < 0 ? 0 : smoothstep(0.58, 0.995, captureT);
-  const captureFade = toy.capture < 0 ? 0 : smoothstep(0.90, 1.0, captureT);
+  const collapseT = toy.capture < 0 ? 0 : smoothstep(0.66, 0.985, captureT);
+  const captureFade = toy.capture < 0 ? 0 : smoothstep(0.92, 1.0, captureT);
   const opacity = 1 - captureFade;
-  const terminalCollapse = Math.pow(collapseT, 1.15);
+  const terminalCollapse = Math.pow(collapseT, 1.45);
   const uniformScale = Math.max(0.012, 1 - 0.988 * terminalCollapse);
   mesh.position.set(s.x, 0, s.z);
   mesh.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), new T.Vector3(s.x / Math.max(r, 0.001), 0, s.z / Math.max(r, 0.001)).normalize());

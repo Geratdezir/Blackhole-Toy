@@ -14,7 +14,7 @@ function smoothstep(edge0: number, edge1: number, x: number) {
 
 const ui = createUI(document.querySelector('#app')!);
 const world = createWorld(ui.host);
-const toys: Toy[] = []; let pull = C.defaultPull, speed = 1, paused = false, accumulator = 0, flash = 0, spawnIndex = 0;
+const toys: Toy[] = []; let pull = C.defaultPull, speed = 1, paused = false, accumulator = 0, flash = 0, captureEnergy = 0, spawnIndex = 0;
 const input = setupInput(world.renderer.domElement, world.camera, world.scene, world.controls, toys, () => pull, active => ui.hint(active ? 'Pull back… release to send it flying!' : paused ? 'Time is paused. Press play to see it fly.' : 'Grab a world. Pull back. Let it fly.'));
 function spawn(kind: Kind) {
   if (toys.length >= C.maxObjects) { ui.hint('The toybox is full! Reset to make more room.'); return; }
@@ -24,7 +24,7 @@ function spawn(kind: Kind) {
   const toy = createToy(kind, Math.cos(a) * radius, Math.sin(a) * radius); toys.push(toy); world.scene.add(toy.mesh, toy.trail); updateToy(toy, 0); ui.hint('Your new world is ready. Pull it back and let go!');
 }
 function reset() {
-  input.cancel(); toys.forEach(disposeToy); toys.length = 0; spawnIndex = 0; pull = 1; speed = 1; paused = false; accumulator = 0; flash = 0; ui.defaults(); ui.paused(false); world.camera.position.set(0, 22, 15); world.controls.target.set(0, 0, 0); world.controls.update(); spawn('planet');
+  input.cancel(); toys.forEach(disposeToy); toys.length = 0; spawnIndex = 0; pull = 1; speed = 1; paused = false; accumulator = 0; flash = 0; captureEnergy = 0; ui.defaults(); ui.paused(false); world.camera.position.set(0, 22, 15); world.controls.target.set(0, 0, 0); world.controls.update(); spawn('planet');
 }
 ui.bind(spawn, () => { paused = !paused; accumulator = 0; ui.paused(paused); ui.hint(paused ? 'Time is paused. You can still line up a throw.' : 'Grab a world. Pull back. Let it fly.'); }, reset, n => { pull = n; input.refresh(); }, n => { speed = n; });
 reset(); let last = performance.now(), visualTime = 0;
@@ -41,12 +41,12 @@ function frame(now: number) {
         const captureT = Math.min(1, toy.capture / C.captureDuration);
         const r = Math.hypot(toy.state.x, toy.state.z);
         const angle = Math.atan2(toy.state.z, toy.state.x);
-        const deathSpiralT = smoothstep(0.20, 0.98, captureT);
+        const deathSpiralT = smoothstep(0.30, 0.985, captureT);
         const finalInwardSpeed = Math.min(4.0, Math.max(3.0, toy.captureEntryInwardSpeed + 1.0, toy.captureEntryInwardSpeed * 1.35));
-        const inwardSpeed = toy.captureEntryInwardSpeed + (finalInwardSpeed - toy.captureEntryInwardSpeed) * Math.pow(deathSpiralT, 1.35);
+        const inwardSpeed = toy.captureEntryInwardSpeed + (finalInwardSpeed - toy.captureEntryInwardSpeed) * Math.pow(deathSpiralT, 1.55);
         const nextR = Math.max(0.03, r - inwardSpeed * C.step);
         const finalTangentialSpeed = Math.min(7.5, Math.max(toy.captureEntryTangentialSpeed + 1.25, toy.captureEntryTangentialSpeed * 1.35));
-        const tangentialSpeed = toy.captureEntryTangentialSpeed + (finalTangentialSpeed - toy.captureEntryTangentialSpeed) * Math.pow(deathSpiralT, 1.15);
+        const tangentialSpeed = toy.captureEntryTangentialSpeed + (finalTangentialSpeed - toy.captureEntryTangentialSpeed) * Math.pow(deathSpiralT, 1.35);
         const angularSpeed = Math.min(10.0, tangentialSpeed / Math.max(r, 0.32));
         const nextAngle = angle + toy.captureSpin * angularSpeed * C.step;
         const oldX = toy.state.x;
@@ -57,7 +57,7 @@ function frame(now: number) {
         toy.state.vz = (toy.state.z - oldZ) / C.step;
         toy.capture += C.step;
         const energyCaptureT = Math.min(1, toy.capture / C.captureDuration);
-        const energyCollapseT = smoothstep(0.58, 0.995, energyCaptureT);
+        const energyCollapseT = smoothstep(0.66, 0.985, energyCaptureT);
         const captureEnergy = Math.pow(energyCollapseT, 2.4);
         activeCaptureEnergy = Math.max(activeCaptureEnergy, captureEnergy);
         if (toy.capture >= C.captureDuration) { disposeToy(toy); toys.splice(i, 1); continue; }
@@ -80,9 +80,10 @@ function frame(now: number) {
       }
       updateToy(toy, C.step);
     }
+    captureEnergy = activeCaptureEnergy;
     flash = Math.max(activeCaptureEnergy, flash - C.step * 5.0); accumulator -= C.step;
   }
-  world.blackHole.update(visualTime, flash);
+  world.blackHole.update(visualTime, flash, captureEnergy);
   if (world.controls.enabled) world.controls.update();
   world.updateLensing();
   world.composer.render();
