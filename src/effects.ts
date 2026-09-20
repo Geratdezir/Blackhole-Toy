@@ -2,6 +2,15 @@ import * as T from 'three';
 import { CONFIG as C } from './config';
 import { TYPES, type Toy } from './objects';
 
+const warmHotColor = new T.Color().setRGB(1.8, 0.85, 0.22);
+const emissiveHotColor = new T.Color().setRGB(2.2, 1.15, 0.35);
+
+type HeatableMaterial = T.Material & {
+  color?: T.Color;
+  emissive?: T.Color;
+  emissiveIntensity?: number;
+};
+
 function smoothstep(edge0: number, edge1: number, x: number) {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
@@ -15,10 +24,30 @@ export function updateToy(toy: Toy, dt: number) {
   const opacity = 1 - captureFade;
   const terminalCollapse = Math.pow(collapseT, 1.45);
   const uniformScale = Math.max(0.012, 1 - 0.988 * terminalCollapse);
+  const heatT = toy.capture < 0 ? 0 : Math.pow(collapseT, 1.8);
   mesh.position.set(s.x, 0, s.z);
   mesh.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), new T.Vector3(s.x / Math.max(r, 0.001), 0, s.z / Math.max(r, 0.001)).normalize());
   mesh.scale.set(uniformScale, uniformScale, uniformScale);
-  mesh.traverse(o => { if (o instanceof T.Mesh) (o.material as T.MeshStandardMaterial).opacity = opacity; });
+  mesh.traverse(o => {
+    if (!(o instanceof T.Mesh)) return;
+    const materials = Array.isArray(o.material) ? o.material : [o.material];
+    materials.forEach(material => {
+      const heatable = material as HeatableMaterial;
+      const data = heatable.userData;
+      if (data.captureBaseOpacity === undefined) data.captureBaseOpacity = heatable.opacity;
+      heatable.opacity = data.captureBaseOpacity * opacity;
+      if (heatable.color) {
+        if (!data.captureBaseColor) data.captureBaseColor = heatable.color.clone();
+        heatable.color.copy(data.captureBaseColor).lerp(warmHotColor, heatT * 0.25);
+      }
+      if (heatable.emissive && heatable.emissiveIntensity !== undefined) {
+        if (!data.captureBaseEmissive) data.captureBaseEmissive = heatable.emissive.clone();
+        if (data.captureBaseEmissiveIntensity === undefined) data.captureBaseEmissiveIntensity = heatable.emissiveIntensity;
+        heatable.emissive.copy(data.captureBaseEmissive).lerp(emissiveHotColor, heatT);
+        heatable.emissiveIntensity = data.captureBaseEmissiveIntensity + heatT * 1.25;
+      }
+    });
+  });
   toy.trailClock += dt;
   if (toy.trailClock >= C.trailInterval && !toy.held && !toy.waiting) {
     toy.trailClock = 0; toy.history.push(mesh.position.clone()); if (toy.history.length > C.trailLength) toy.history.shift();
